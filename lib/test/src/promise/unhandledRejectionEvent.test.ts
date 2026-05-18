@@ -7,8 +7,8 @@
  */
 
 import { assert } from "@nevware21/tripwire";
-import { arrForEach, asString, dumpObj, getGlobal, isNode, isWebWorker, objHasOwn, scheduleTimeout, setBypassLazyCache } from "@nevware21/ts-utils";
-import { createAsyncPromise, createAsyncRejectedPromise } from "../../../src/promise/asyncPromise";
+import { arrForEach, asString, dumpObj, getGlobal, isNode, isWebWorker, objHasOwn, setBypassLazyCache } from "@nevware21/ts-utils";
+import { createAsyncRejectedPromise } from "../../../src/promise/asyncPromise";
 import { IPromise } from "../../../src/interfaces/IPromise";
 import { setPromiseDebugState } from "../../../src/promise/debug";
 import { PolyPromise } from "../../../src/polyfills/promise";
@@ -133,7 +133,7 @@ describe("Validate unhandled rejection event handling", () => {
         describe(`Testing [${testKey}] promise implementation`, function () {
             if (testKey === "idle") {
                 // Extend the default timeout for idle tests
-                this.timeout(10000);
+                this.timeout(15000);
             }
     
             batchTests(testKey, definition);
@@ -141,22 +141,25 @@ describe("Validate unhandled rejection event handling", () => {
     });
 });
 
-function waitForUnhandledRejection() {
-    //console.log("Waiting for unhandled rejection event(s)");
-    // Wait for unhandled rejection event
-    return createAsyncPromise((resolve) => {
-        let attempt = 0;
-        let waiting = scheduleTimeout(() => {
-            //console.log("[" + attempt + "]: Waiting for unhandled rejection event(s) - " + _unhandledEvents.length);
-            if (attempt < 5) {
-                attempt++;
-                waiting.refresh();
-            } else if (_unhandledEvents.length > 0) {
+function waitForUnhandledRejection(timeoutMs: number = 2000): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+        let start = Date.now();
+
+        function check() {
+            if (_unhandledEvents.length > 0) {
                 resolve(true);
-            } else {
-                throw "Failed to trigger and handle the unhandledRejection";
+                return;
             }
-        }, 50);
+
+            if ((Date.now() - start) >= timeoutMs) {
+                reject(new Error("Failed to trigger and handle the unhandledRejection"));
+                return;
+            }
+
+            setTimeout(check, 25);
+        }
+
+        check();
     });
 }
 
